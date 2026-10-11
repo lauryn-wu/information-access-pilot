@@ -2,15 +2,18 @@ from copy import deepcopy
 from fractions import Fraction
 import json
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from information_access.analysis import summarize
-from information_access.ledger import Ledger, cost, dollars_to_nano, read_run, run_lock
+from information_access.ledger import (FORMAT_RECOVERY_KEY, Ledger, cost, dollars_to_nano,
+                                       read_format_recovery, read_run, run_lock)
 from information_access.providers import NativeProvider, ProviderError, Result, decode, parse_choice
+from information_access.recovery import recover_format
 from information_access.runner import load_config, manifest_for, plan, run
-from information_access.tasks import brute_force_value, classes, generate, solve, validate, value
+from information_access.tasks import brute_force_value, classes, generate, save_cases, solve, validate, value
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,6 +78,25 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(parse_choice('```json\n{"choice":"Y"}\n```'), "Y")
         for text in ('X', 'I pick X. {"choice":"X"}', '{"choice":"X","choice":"Y"}',
                      '{"choice":"Z"}', '{"choice":"X","reason":"yes"}', 'null', '[]'):
+            self.assertIsNone(parse_choice(text), text)
+
+    def test_terminal_json_after_explanation(self):
+        for label in ("X", "Y"):
+            answer = json.dumps({"choice": label})
+            for text in (f"Expected values: 10 versus 11.\n\n{answer}",
+                         f"Calculation complete.\n```json\n{answer}\n```",
+                         f"A calculation with `inline code`.\n  {answer}"):
+                self.assertEqual(parse_choice(text), label)
+
+    def test_conflicting_nested_and_nonterminal_json_remain_invalid(self):
+        for text in ('{"choice":"Y"}\n{"choice":"X"}',
+                     'Example: {"choice":"Y"}\n{"choice":"X"}',
+                     'Reason.\n{"choice":"X","choice":"Y"}',
+                     'Reason.\n{"answer":{"choice":"X"}}',
+                     '[\n{"choice":"X"}\n]',
+                     'Reason.\n{"choice":"X"}\nActually, Y.',
+                     '```json\n{"choice":"Y"}\n```\n{"choice":"X"}',
+                     'Reason.\n{"choice":"X","reason":"because"}'):
             self.assertIsNone(parse_choice(text), text)
 
     def test_anthropic_thought_blocks_not_parsed_as_final(self):
@@ -292,6 +314,155 @@ class RunnerTests(unittest.TestCase):
             for m in report["models"].values():
                 self.assertEqual(m["joint_signature_pairs"], expected_signature)
                 self.assertEqual(m["outcome"], expected_outcome)
+
+
+class RecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.directory = Path(self.tmp.name)
+        self.config = load_config(ROOT / "configs/screen.json")
+        self.config["pricing_valid_through"] = "2099-12-31"
+        self.cases = generate()
+        recipe = json.loads((ROOT / "information_access/format_recovery_v2.json").read_text())
+        self.original = manifest_for(self.config, self.cases, "live")
+        self.original["code_sha256"] = recipe["from_code_sha256"]
+        save_cases(self.directory / "cases.jsonl", self.cases)
+        (self.directory / "manifest.json").write_text(json.dumps(self.original, indent=2) + "\n")
+        ledger = Ledger(self.directory, self.original)
+        try:
+            for case in self.cases[:2]:
+                for model in self.config["models"]:
+                    # Use the wrong label deliberately: recovery must not consult gold.
+                    label = next(k for k, v in case["labels"].items()
+                                 if v != case["gold"]["choices"]["feasible"])
+                    text = "Expected-value calculation.\n\n" + json.dumps({"choice": label})
+                    if model["provider"] == "anthropic":
+                        raw = {"content": [{"type": "text", "text": text}], "stop_reason": "end_turn",
+                               "usage": {"input_tokens": 200, "output_tokens": 100}}
+                        status, choice = "invalid_format", None
+                    else:
+                        raw = {"candidates": [{"finishReason": "STOP", "content": {"parts": [
+                            {"text": json.dumps({"choice": label})}]}}],
+                               "usageMetadata": {"promptTokenCount": 200, "totalTokenCount": 300}}
+                        status, choice = "valid", label
+                    result = decode(model["provider"], raw)
+                    attempt = ledger.reserve(model["name"], case["id"],
+                                             cost(model, 2000, 4096), 200)
+                    ledger.finish(attempt, status=status, choice=choice, actual=cost(model, 200, 100),
+                                  detail=result.stop, raw=raw, input_tokens=200, output_tokens=100)
+        finally:
+            ledger.close()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def recover(self):
+        # An attempted HTTP call or credential access fails the offline test.
+        with patch("urllib.request.urlopen", side_effect=AssertionError("Recovery must stay offline")), \
+             patch.dict("os.environ", {}, clear=True):
+            return recover_format(self.config, self.cases, self.directory)
+
+    def test_recovery_preserves_raw_costs_original_manifest_and_backup(self):
+        before_manifest, before = read_run(self.directory)
+        manifest_bytes = (self.directory / "manifest.json").read_bytes()
+        result = self.recover()
+        self.assertEqual(result["recovered_attempts"], 2)
+        self.assertEqual(result["valid_cells"], {"sonnet": 2, "gemini": 2})
+        self.assertEqual(result["cost"]["reserved_exposure_usd"], "0.123640")
+        after_manifest, after = read_run(self.directory)
+        self.assertEqual(before_manifest, after_manifest)
+        self.assertEqual(manifest_bytes, (self.directory / "manifest.json").read_bytes())
+        for old, new in zip(before, after):
+            self.assertEqual({k: v for k, v in old.items() if k not in ("choice", "status")},
+                             {k: v for k, v in new.items() if k not in ("choice", "status")})
+        audit = read_format_recovery(self.directory)
+        self.assertEqual(audit["original_attempt_status_counts"]["sonnet"], {"invalid_format": 2})
+        backup = sqlite3.connect(self.directory / result["backup_file"])
+        backup.row_factory = sqlite3.Row
+        try:
+            self.assertEqual([dict(r) for r in backup.execute("SELECT * FROM attempts ORDER BY id")], before)
+        finally:
+            backup.close()
+        report = json.loads((self.directory / "analysis.json").read_text())
+        self.assertEqual(report["models"]["sonnet"]["policy_agreement"]["feasible"]["correct"], 0)
+        self.assertEqual(report["format_recovery"], audit)
+
+    def test_repeat_is_idempotent_and_resume_skips_recovered_answers(self):
+        self.recover()
+        initial = read_run(self.directory)
+        audit = read_format_recovery(self.directory)
+        self.assertFalse(self.recover()["recovery_applied"])
+        self.assertEqual(read_run(self.directory), initial)
+        self.assertEqual(read_format_recovery(self.directory), audit)
+        self.assertEqual(len(list(self.directory.glob("ledger.before-*.sqlite3"))), 1)
+        sent = []
+
+        class Fake:
+            def __init__(self, model, config):
+                pass
+
+            def count(self, prompt):
+                return 200
+
+            def generate(self, prompt):
+                sent.append(prompt)
+                return Result("valid", "X", '{"choice":"X"}', "end_turn", 200, 10, {})
+
+        report = run(self.config, self.cases, self.directory, limit=1, provider_factory=Fake,
+                     progress=lambda _: None)
+        self.assertEqual(sent, [self.cases[2]["prompt"]])
+        self.assertEqual(report["cost"]["reserved_exposure_usd"], "0.168600")
+        self.assertEqual(read_run(self.directory)[0], self.original)
+        self.assertEqual(json.loads((self.directory / "manifest.json").read_text()), self.original)
+
+    def test_unrecovered_run_and_unreviewed_code_or_settings_still_blocked(self):
+        with self.assertRaises(ValueError):
+            Ledger(self.directory, manifest_for(self.config, self.cases, "live"))
+        changed = deepcopy(self.config)
+        changed["budget_usd"] = "4.00"
+        with self.assertRaises(ValueError):
+            recover_format(changed, self.cases, self.directory)
+        with patch("information_access.runner.code_hash", return_value="unreviewed-code"):
+            with self.assertRaises(ValueError):
+                self.recover()
+        self.recover()
+        with self.assertRaises(ValueError):
+            Ledger(self.directory, manifest_for(changed, self.cases, "live"))
+        with patch("information_access.runner.code_hash", return_value="unreviewed-code"):
+            with self.assertRaises(ValueError):
+                Ledger(self.directory, manifest_for(self.config, self.cases, "live"))
+
+    def test_modified_frozen_cases_are_rejected_without_updates(self):
+        before = read_run(self.directory)
+        altered = deepcopy(self.cases)
+        altered[0]["prompt"] += " modified"
+        save_cases(self.directory / "cases.jsonl", altered)
+        with self.assertRaises(ValueError):
+            self.recover()
+        self.assertEqual(read_run(self.directory), before)
+
+    def test_truncated_and_pending_attempts_are_never_recovered(self):
+        db = sqlite3.connect(self.directory / "ledger.sqlite3")
+        with db:
+            db.execute("UPDATE attempts SET status='truncated', detail='max_tokens' WHERE id=1")
+            db.execute("UPDATE attempts SET status='pending', raw=NULL, actual=NULL WHERE id=3")
+        db.close()
+        before = read_run(self.directory)[1]
+        result = self.recover()
+        self.assertEqual(result["recovered_attempts"], 0)
+        self.assertEqual(read_run(self.directory)[1], before)
+        self.assertEqual(result["cost"]["reserved_exposure_usd"], "0.123640")
+
+    def test_status_corrections_roll_back_if_audit_cannot_commit(self):
+        db = sqlite3.connect(self.directory / "ledger.sqlite3")
+        db.executescript(f"""CREATE TRIGGER fail_audit BEFORE INSERT ON metadata
+            WHEN NEW.key='{FORMAT_RECOVERY_KEY}' BEGIN SELECT RAISE(ABORT, 'test failure'); END;""")
+        db.close()
+        before = read_run(self.directory)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.recover()
+        self.assertEqual(read_run(self.directory), before)
+        self.assertIsNone(read_format_recovery(self.directory))
 
 
 if __name__ == "__main__":

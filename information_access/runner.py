@@ -86,7 +86,7 @@ def run(config, cases, directory, *, selected=None, retry=False, limit=None,
                     raise ValueError("Frozen cases changed")
             else:
                 save_cases(cases_path, cases)
-            (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+            (directory / "manifest.json").write_text(json.dumps(ledger.manifest, indent=2) + "\n")
             # Validate all requested credentials before sending the first generation.
             providers = {m["name"]: provider_factory(m, config) for m in models} if mode == "live" else {}
             sent = 0

@@ -2,6 +2,8 @@
 
 Status: frozen before model data collection. Exploratory feasibility screen, not a powered confirmatory experiment. No live results are included in the repository.
 
+Parser amendment, 2026-10-11: after inspecting the initial smoke responses, extraction was extended to accept a single terminal JSON answer following explanatory prose. The answer must start on its own line, optionally inside one code fence; the prefix may not contain other JSON fragments or code fences. The JSON must still contain exactly one `choice` key with value `X` or `Y`, without duplicate keys or trailing prose. Truncation and provider errors remain excluded. This extraction rule is independent of the gold label and applies to both providers and all responses. The amendment changes no prompts, collection settings, gold answers, thresholds, or budgets. Existing runs require an offline, backed-up recovery with an audit of original statuses and the exact code transition; no responses are resampled. Reports after recovery use validity under this amended rule and include the original status counts in the audit.
+
 ## Target computation
 
 The hypothesis is that a model sometimes evaluates a contingent plan by selecting the best action separately in each possible state, without enforcing what it will actually know when choosing the action. The behavioral comparator is the perfect-information relaxation:

@@ -10,6 +10,23 @@ import sqlite3
 from .tasks import canonical
 
 NANO = 1_000_000_000
+FORMAT_RECOVERY_KEY = "terminal_json_recovery_v2"
+
+
+def approved_format_transition(original, current):
+    """Permit only the reviewed parser release; all collection settings stay frozen."""
+    recipe = json.loads(Path(__file__).with_name("format_recovery_v2.json").read_text())
+    return (original.get("mode") == "live"
+            and original.get("code_sha256") == recipe["from_code_sha256"]
+            and current.get("code_sha256") == recipe["to_code_sha256"]
+            and {**original, "code_sha256": current["code_sha256"]} == current)
+
+
+def recovered_manifest_matches(original, current, audit):
+    return (audit is not None
+            and audit.get("from_code_sha256") == original.get("code_sha256")
+            and audit.get("to_code_sha256") == current.get("code_sha256")
+            and approved_format_transition(original, current))
 
 
 def dollars_to_nano(value):
@@ -73,11 +90,20 @@ class Ledger:
         existing = self.db.execute("SELECT value FROM metadata WHERE key='manifest'").fetchone()
         encoded = canonical(manifest)
         if existing and existing[0] != encoded:
-            self.db.close()
-            raise ValueError("Run manifest changed; resume requires the original code, config, and dataset")
+            recovery = self.db.execute("SELECT value FROM metadata WHERE key=?", (FORMAT_RECOVERY_KEY,)).fetchone()
+            try:
+                compatible = recovered_manifest_matches(json.loads(existing[0]), manifest,
+                                                        json.loads(recovery[0]) if recovery else None)
+            except (ValueError, OSError, KeyError):
+                compatible = False
+            if not compatible:
+                self.db.close()
+                raise ValueError("Run manifest changed; resume requires the original code, config, and dataset. "
+                                 "For the terminal-JSON parser update, first run recover-format offline.")
         with self.db:
             self.db.execute("INSERT OR IGNORE INTO metadata VALUES ('manifest', ?)", (encoded,))
-        self.manifest = manifest
+        # Keep the collection manifest immutable, including after parser recovery.
+        self.manifest = json.loads(existing[0]) if existing else manifest
         self.limit = dollars_to_nano(manifest["config"]["budget_usd"])
 
     def close(self):
@@ -128,5 +154,15 @@ def read_run(directory):
         manifest = json.loads(db.execute("SELECT value FROM metadata WHERE key='manifest'").fetchone()[0])
         attempts = [dict(row) for row in db.execute("SELECT * FROM attempts ORDER BY id")]
         return manifest, attempts
+    finally:
+        db.close()
+
+
+def read_format_recovery(directory):
+    path = Path(directory) / "ledger.sqlite3"
+    db = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        row = db.execute("SELECT value FROM metadata WHERE key=?", (FORMAT_RECOVERY_KEY,)).fetchone()
+        return json.loads(row[0]) if row else None
     finally:
         db.close()

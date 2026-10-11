@@ -61,6 +61,25 @@ python3 -m information_access run --execute --retry-failed
 
 A valid answer is never resampled, even when it is wrong. An interrupted call keeps its full reservation because the provider may have charged for it. Retries use the original prompt and settings. Frequent truncation is a reason to revise the screen's allocation, not evidence of a reasoning failure.
 
+## Recover the original smoke run after the parser update
+
+The original parser rejected responses that explained their calculation before returning the requested JSON. The updated parser accepts one final JSON answer on its own line, optionally fenced, after explanation. Multiple JSON objects, duplicate keys, extra fields, trailing prose, and truncated responses are still excluded. This rule applies equally to both models and to correct and incorrect choices.
+
+If your existing run used the original code, run these commands from the repository root:
+
+```bash
+git pull --ff-only
+python3 -m information_access recover-format
+```
+
+Recovery is entirely offline: it needs no API keys and makes no API calls. It backs up the SQLite ledger, reparses stored responses, and records original statuses and every correction in `format_recovery.json`. It preserves the original manifest, raw responses, timestamps, token usage, reservations, and budget. Running recovery twice is safe. Then resume the same run:
+
+```bash
+python3 -m information_access run --execute
+```
+
+Recovered answers are skipped, including incorrect ones. Keep `runs/screen/` in place. This exception permits only the reviewed source and destination code hashes recorded in `information_access/format_recovery_v2.json`; arbitrary code, configuration, dataset, and mode changes remain blocked. The audit records the last attempt ID collected before the update. A fresh run on the updated code needs no recovery.
+
 ## Cost envelope
 
 The checked-in configuration uses rates verified on **2026-10-11**:
@@ -77,7 +96,7 @@ All reservations remain charged against the local $5 limit, even when reported u
 
 This is a software spending guard at the recorded API rates, not a provider billing limit. It does not cover taxes, exchange rates, other applications, or separate run directories. Retain `runs/screen/`; deleting it or starting a new directory starts a separate budget. Unexpected usage beyond the configured bounds halts execution for review.
 
-The pricing snapshot expires **2026-11-10**, when live runs refuse to continue until rates are reviewed. Gemini's current introductory prices end December 31, 2026. See the [Anthropic model documentation](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) and [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing). Settings, code and dataset hashes are frozen per run; changing them requires a separately identified run and budget.
+The pricing snapshot expires **2026-11-10**, when live runs refuse to continue until rates are reviewed. Gemini's current introductory prices end December 31, 2026. See the [Anthropic model documentation](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) and [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing). Settings, code and dataset hashes are frozen per run. The audited parser recovery above is the sole supported code-update exception; other changes require a separately identified run and budget.
 
 ## What to inspect
 
@@ -91,6 +110,7 @@ Under `runs/screen/`:
 | `attempts.jsonl` | Exported raw provider responses, timestamps, token usage, statuses |
 | `decisions.csv` | One row per planned model/cell; missing choices stay empty |
 | `analysis.json` | Control accuracy, paired signatures, policy agreement, cost accounting |
+| `format_recovery.json` | If recovered: code transition, original statuses, corrected attempts, backup filename |
 
 After an interrupted/error exit, `analyze` exports all stored attempts, including pending ones. The SQLite ledger is saved before every generation request. Only prompt text is sent to providers; gold answers and condition labels are never sent.
 

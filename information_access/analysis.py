@@ -5,7 +5,7 @@ import csv
 import json
 from pathlib import Path
 
-from .ledger import money, read_run
+from .ledger import money, read_format_recovery, read_run
 from .tasks import FAMILIES, REGIMES, digest
 
 
@@ -92,6 +92,10 @@ def analyze(directory):
     if digest(cases) != manifest["dataset_sha256"]:
         raise ValueError("Frozen dataset was modified")
     report, rows = summarize(cases, manifest["config"]["models"], attempts, manifest["mode"])
+    recovery = read_format_recovery(directory)
+    if recovery:
+        report["format_recovery"] = recovery
+        (directory / "format_recovery.json").write_text(json.dumps(recovery, indent=2) + "\n")
     (directory / "analysis.json").write_text(json.dumps(report, indent=2) + "\n")
     with (directory / "decisions.csv").open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))

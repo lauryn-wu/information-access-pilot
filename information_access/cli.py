@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from .analysis import analyze
+from .recovery import recover_format
 from .runner import load_config, plan, run
 from .tasks import generate, save_cases
 
@@ -28,6 +29,8 @@ def main(argv=None):
     demo.add_argument("--run-dir", help="Default: runs/demo-POLICY (cannot be reused for paid runs)")
     report = sub.add_parser("analyze", help="Read frozen run, write JSON and CSV reports")
     report.add_argument("--run-dir", default="runs/screen")
+    recovery = sub.add_parser("recover-format", help="Offline recovery of terminal JSON from saved responses; no API calls")
+    recovery.add_argument("--run-dir", default="runs/screen")
     args = parser.parse_args(argv)
     try:
         if args.command == "analyze":
@@ -47,6 +50,8 @@ def main(argv=None):
                     parser.error("No API calls made. Paid execution requires run --execute.")
                 result = run(config, cases, args.run_dir, selected=args.model,
                              retry=args.retry_failed, limit=args.limit)
+            elif args.command == "recover-format":
+                result = recover_format(config, cases, args.run_dir)
             else:
                 result = run(config, cases, args.run_dir or f"runs/demo-{args.policy}",
                              mode=f"simulation:{args.policy}", progress=lambda _: None)

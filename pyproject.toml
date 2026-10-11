@@ -14,3 +14,6 @@ information-access = "information_access.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["information_access*"]
+
+[tool.setuptools.package-data]
+information_access = ["format_recovery_v2.json"]

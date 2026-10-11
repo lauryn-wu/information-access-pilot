@@ -28,8 +28,16 @@ def post_json(url, body, headers, timeout):
 
 
 def parse_choice(text):
-    """Accept only a complete JSON object, optionally enclosed in one code fence."""
+    """Read one terminal JSON answer, optionally after unstructured explanation.
+
+    The answer must start on its own line. Other JSON fragments, extra fields,
+    duplicate keys and trailing prose remain invalid. Never consult the gold.
+    """
     text = text.strip()
+    start = re.search(r"(?m)^[ \t]*(?=\{|```)", text)
+    if start is None or any(marker in text[:start.start()] for marker in ("{", "}", "```")):
+        return None
+    text = text[start.start():].strip()
     fence = re.fullmatch(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if fence:
         text = fence.group(1).strip()
