@@ -91,6 +91,12 @@ def run(config, cases, directory, *, selected=None, retry=False, limit=None,
             providers = {m["name"]: provider_factory(m, config) for m in models} if mode == "live" else {}
             sent = 0
             prior = ledger.attempts()
+            if mode == "live" and any(
+                (r["actual"] is not None and r["actual"] > r["reserved"])
+                or (r["input_tokens"] or 0) > config["max_input_tokens"]
+                or (r["output_tokens"] or 0) > config["max_output_tokens"] for r in prior
+            ):
+                raise ValueError("A previous request exceeded usage assumptions; this run remains halted for review")
             history = {}
             for row in prior:
                 history.setdefault((row["model"], row["cell"]), []).append(row)

@@ -271,6 +271,9 @@ class RunnerTests(unittest.TestCase):
         _, attempts = read_run(self.directory)
         self.assertEqual(len(attempts), 1)
         self.assertGreater(attempts[0]["actual"], attempts[0]["reserved"])
+        with self.assertRaises(ValueError):
+            self.execute()
+        self.assertEqual(len(read_run(self.directory)[1]), 1)
 
     def test_only_one_runner_per_directory(self):
         with run_lock(self.directory):
