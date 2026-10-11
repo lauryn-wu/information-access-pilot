@@ -1,0 +1,30 @@
+{
+  "protocol_version": "screen-v1",
+  "seed": 20261011,
+  "budget_usd": "5.00",
+  "pricing_checked": "2026-10-11",
+  "pricing_valid_through": "2026-11-10",
+  "max_input_tokens": 2000,
+  "input_margin_tokens": 256,
+  "max_output_tokens": 4096,
+  "max_attempts_per_cell": 2,
+  "timeout_seconds": 180,
+  "models": [
+    {
+      "name": "sonnet",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "effort": "high",
+      "input_usd_per_million": "2.00",
+      "output_usd_per_million": "10.00"
+    },
+    {
+      "name": "gemini",
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "medium",
+      "input_usd_per_million": "0.75",
+      "output_usd_per_million": "3.75"
+    }
+  ]
+}

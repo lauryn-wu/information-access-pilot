@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "information-access-pilot"
+version = "0.1.0"
+description = "A budget-capped diagnostic screen of LLM planning under partial observability"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+information-access = "information_access.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["information_access*"]
