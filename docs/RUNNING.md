@@ -1,0 +1,113 @@
+# Running the information-access pilot
+
+These are the original operational instructions, retained for reproducibility. See the [README](../README.md) for completed results and current study status. Run all commands from the repository root. The API rates below are dated configuration snapshots; review current rates and model access before starting a new paid run.
+
+## Quick start: entirely offline
+
+Python 3.11+ on macOS or Linux. From the repository root:
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m information_access plan
+python3 -m information_access demo --policy feasible
+python3 -m information_access demo --policy perfect_information
+python3 -m information_access demo --policy fixed_action
+```
+
+The feasible reference should score 100% and produce no diagnostic signatures. The perfect-information reference should produce all 8 signatures. The fixed-action reference should fail the information-use controls. **These are synthetic software checks, not model measurements.**
+
+The frozen screen is in [`data/screen.jsonl`](../data/screen.jsonl). Regenerate it with:
+
+```bash
+python3 -m information_access generate
+```
+
+## Paid screen, when ready
+
+Set `ANTHROPIC_API_KEY` and `GEMINI_API_KEY` in your shell. Keys are read only from environment variables; `.env` files are not loaded. Never commit a key.
+
+Start with four generation requests to check provider access and response formatting:
+
+```bash
+python3 -m information_access run --execute --limit 4
+```
+
+Continue the same run, using the same directory and reservation ledger:
+
+```bash
+python3 -m information_access run --execute
+python3 -m information_access analyze
+```
+
+To run just one provider first, use `--model sonnet` or `--model gemini`. Later omit `--model` to complete the other provider within the **same** shared budget. The smoke calls are part of the screen, not extra trials.
+
+There are no automatic generation retries. A resumed run skips attempted cells by default. After checking an error, allow one retry per failed/invalid cell with:
+
+```bash
+python3 -m information_access run --execute --retry-failed
+```
+
+A valid answer is never resampled, even when it is wrong. An interrupted call keeps its full reservation because the provider may have charged for it. Retries use the original prompt and settings. Frequent truncation is a reason to revise the screen's allocation, not evidence of a reasoning failure.
+
+## Recover the original smoke run after the parser update
+
+The original parser rejected responses that explained their calculation before returning the requested JSON. The updated parser accepts one final JSON answer on its own line, optionally fenced, after explanation. Multiple JSON objects, duplicate keys, extra fields, trailing prose, and truncated responses are still excluded. This rule applies equally to both models and to correct and incorrect choices.
+
+If your existing run used the original code, run these commands from the repository root:
+
+```bash
+git pull --ff-only
+python3 -m information_access recover-format
+```
+
+Recovery is entirely offline: it needs no API keys and makes no API calls. It backs up the SQLite ledger, reparses stored responses, and records original statuses and every correction in `format_recovery.json`. It preserves the original manifest, raw responses, timestamps, token usage, reservations, and budget. Running recovery twice is safe. Then resume the same run:
+
+```bash
+python3 -m information_access run --execute
+```
+
+Recovered answers are skipped, including incorrect ones. Keep `runs/screen/` in place. This exception permits only the reviewed source and destination code hashes recorded in `information_access/format_recovery_v2.json`; arbitrary code, configuration, dataset, and mode changes remain blocked. The audit records the last attempt ID collected before the update. A fresh run on the updated code needs no recovery.
+
+## Cost envelope
+
+The checked-in configuration uses rates verified on **2026-10-11**:
+
+| Model | Thinking setting | Input / 1M tokens | Output / 1M tokens | Reservation for 64 calls |
+|---|---|---:|---:|---:|
+| `claude-sonnet-5-5` | Adaptive, high effort | $2.00 | $10.00 | $2.87744 |
+| `gemini-3.8-flash` | Medium thinking | $0.75 | $3.75 | $1.07904 |
+| **First pass total** | | | | **$3.95648** |
+
+Each generation reserves **2,000 input + 4,096 total output tokens, including thinking**. A native token-count request runs first; the count plus 256 tokens of headroom must fit the input allowance. Prompts are under 1,200 UTF-8 bytes. No search, tools, explicit caches, or other billable features are enabled.
+
+All reservations remain charged against the local $5 limit, even when reported usage is lower. This deliberately conservative rule leaves **$1.04352** for retry reservations. The process stops before a request that would exceed the limit. Unknown charges are never treated as zero.
+
+This is a software spending guard at the recorded API rates, not a provider billing limit. It does not cover taxes, exchange rates, other applications, or separate run directories. Retain `runs/screen/`; deleting it or starting a new directory starts a separate budget. Unexpected usage beyond the configured bounds halts execution for review.
+
+The pricing snapshot expires **2026-11-10**, when live runs refuse to continue until rates are reviewed. Gemini's current introductory prices end December 31, 2026. See the [Anthropic model documentation](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) and [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing). Settings, code and dataset hashes are frozen per run. The audited parser recovery above is the sole supported code-update exception; other changes require a separately identified run and budget.
+
+## What to inspect
+
+Under `runs/screen/`:
+
+| File | Contents |
+|---|---|
+| `manifest.json` | Frozen configuration, code hash, dataset hash, live/simulation mode |
+| `cases.jsonl` | Exact prompts, matched factors, gold choices and values |
+| `ledger.sqlite3` | Durable attempts and reservations; the authoritative run state |
+| `attempts.jsonl` | Exported raw provider responses, timestamps, token usage, statuses |
+| `decisions.csv` | One row per planned model/cell; missing choices stay empty |
+| `analysis.json` | Control accuracy, paired signatures, policy agreement, cost accounting |
+| `format_recovery.json` | If recovered: code transition, original statuses, corrected attempts, backup filename |
+
+After an interrupted/error exit, `analyze` exports all stored attempts, including pending ones. The SQLite ledger is saved before every generation request. Only prompt text is sent to providers; gold answers and condition labels are never sent.
+
+`invalid_format`, `truncated`, `blocked`, `incomplete_response`, `malformed_response`, transport failures and pending requests are **not scored as wrong decisions**. The descriptive report uses the first valid response per cell and separately reports first-attempt validity and all attempt statuses.
+
+The main outcome is the **paired signature**, not aggregate accuracy. An always-safe policy already gets 81.25% of these cells right. See [`protocol.md`](protocol.md) for the frozen decision rule and [`related_work.md`](related_work.md) for the scope of the proposed contribution.
+
+## Implementation notes
+
+`information_access/tasks.py` generates and solves tasks; `providers.py` handles the native APIs; `ledger.py` reserves spending; `runner.py` executes/resumes; `analysis.py` reports the paired outcomes. The CLI does not make network calls unless `run --execute` is supplied. The synthetic demos cannot be resumed as live experiments.
+
+There is intentionally no automated paid workflow. Offline tests check exact values, matching, parsing, hidden-token accounting, budget persistence, crash recovery, duplicate prevention and the synthetic reference signatures. Live access, model availability, and actual response validity still need the four-call smoke check.
