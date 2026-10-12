@@ -1,46 +1,67 @@
 # Information-access pilot
 
-Does a language model choose a plan as though it will observe a hidden state before acting, even when that information arrives too late or never arrives?
+This pilot tests whether a model chooses a plan that would require information
+it cannot obtain before acting. Sonnet answered 63/64 cases correctly and showed
+the predicted failure pattern in none of the eight matched pairs. The Gemini run
+stopped after provider failures, with only two valid responses.
 
-**Status: Sonnet screen completed with no replicated failure signature; Gemini run incomplete.** Sonnet chose the correct action in **63/64 cases**, passed **40/40 control cases**, and showed the predicted joint failure pattern in **0/8 matched pairs**. Gemini produced only two valid responses before repeated provider failures prevented completion.
-
-The repository contains the frozen tasks, exact reference policies, model adapters, raw responses, and analysis. See the [saved results](results/2026-10-11-information-access/).
+The tasks, reference policies, model adapters, raw responses, and analysis are
+included here. Start with the [saved results](results/2026-10-11-information-access/).
 
 ## Task and comparison
 
-Each task asks the model to choose between a safe option and a plan whose value depends on a hidden state. Information about that state arrives before the decision, provides only partial information, arrives after the decision, or never arrives. An exact rational oracle scores the best policy that can use only the information actually available at decision time.
+Each task offers a safe option and a plan whose value depends on a hidden state.
+Information about that state arrives before the decision, provides only partial
+information, arrives after the decision, or never arrives. A reference solver
+computes the best policy using only information available at decision time.
 
-Eight matched pairs span machine-repair and delivery-routing framings, with four information regimes and two worlds per pair: **64 prompts per model**. The two framings are mathematical analogues, so they do not establish generalization across independent domains.
+Eight matched pairs use machine-repair and delivery-routing scenarios, with four
+information regimes and two worlds per pair: 64 prompts per model. The scenarios
+are two framings of the same mathematical task.
 
-The primary outcome is a paired pattern of choosing as though unavailable information could guide later action, while passing the information-use controls. Aggregate accuracy alone is insufficient: an always-safe policy already gets 81.25% of the cells right. The [protocol](docs/protocol.md) specifies the signature and continuation criteria.
+The planned failure pattern requires the model to choose as though unavailable
+information could guide later action, while passing the corresponding controls.
+Accuracy alone would miss this distinction: always choosing the safe option
+already gets 81.25% of cases right. The [protocol](docs/protocol.md) defines the
+pattern and the criteria for continuing.
 
 ## Results
 
 | Measure | Sonnet | Gemini |
 | --- | ---: | ---: |
 | Model | `claude-sonnet-5-5` | `gemini-3.8-flash` |
-| Valid responses / planned cells | 64/64 | 2/64 |
+| Valid responses / planned cases | 64/64 | 2/64 |
 | Complete matched pairs | 8/8 | 0/8 |
-| Control cases correct / planned | 40/40 | 1/40 |
+| Control cases correct / valid | 40/40 | 1/1; 39 missing |
 | Overall accuracy among valid responses | 63/64 | Insufficient coverage |
-| Matched pairs showing the joint failure signature | 0/8 | Not estimable |
+| Matched pairs showing the planned failure pattern | 0/8 | Not estimable |
 | Outcome | `no_replicated_signature` | `incomplete` |
 
-Sonnet was correct on 16/16 cases each in the before, after, and never regimes, and 15/16 in the partial-information regime. Both Gemini responses were correct, but three transport failures and missing cells leave no basis for a scientific conclusion about that model. Errors and missing responses are not counted as wrong decisions.
+Sonnet was correct on 16/16 cases each in the before, after, and never regimes,
+and 15/16 with partial information. Both Gemini responses were correct, but
+three transport failures left the run too incomplete to assess its behavior.
+Missing responses are excluded from accuracy.
 
-Recorded usage cost was **$0.171051**, with **three attempts of unknown cost**. The conservative reservation was **$2.961740** against the shared $5 cap. Recorded usage is therefore not a complete invoice estimate.
+Known usage charges totalled $0.171051; three attempts have unknown cost. The
+budget guard's conservative reservation was $2.961740 against a shared $5 cap.
 
-## Parsing audit
+## Recovered JSON responses
 
-The initial parser rejected two Sonnet responses that ended with the requested JSON after an explanation. A documented offline recovery accepted terminal JSON under a uniform rule, without rerunning either response. Raw responses, original statuses, timestamps, usage, and reservations were preserved; the source-code transition is recorded in [format_recovery.json](results/2026-10-11-information-access/format_recovery.json).
+The first parser rejected two Sonnet responses that gave an explanation before
+the requested JSON. An offline parsing change accepted terminal JSON under a
+uniform rule, without rerunning either response. Both are included in the 64
+valid responses above. The raw outputs, original statuses, timestamps, usage,
+and reservations were preserved. The code change is recorded in
+[format_recovery.json](results/2026-10-11-information-access/format_recovery.json)
+and included in the [analysis](results/2026-10-11-information-access/analysis.json).
 
-The 64 valid Sonnet cells above include those two recovered responses. They are original provider responses, not replacement samples. The [full analysis](results/2026-10-11-information-access/analysis.json) includes the recovery record and reports Gemini's incompleteness separately.
+## Study status
 
-## Interpretation and status
-
-This completed Sonnet run did not show the proposed information-access error under the tested prompts and settings. Its one mistake occurred under partial information and did not produce the prespecified joint pattern. Eight matched pairs provide limited coverage; the result does not establish that the model always respects information constraints.
-
-The Sonnet screen is complete and the Gemini portion remains incomplete. No further experiments are currently planned for this design. The repository preserves both outcomes, without treating the combined study as a completed two-model comparison. See [related work](docs/related_work.md) for the hypothesis and its limits.
+Sonnet's one mistake, under partial information, did not match the proposed
+failure pattern. Eight pairs give limited coverage, and Gemini's incomplete run
+prevents a comparison between models. No further runs are planned for this
+design. The [related work](docs/related_work.md) explains the hypothesis in more
+detail.
 
 ## Inspect and reproduce the results
 
@@ -53,4 +74,6 @@ python3 -m unittest discover -s tests -v
 python3 -m information_access plan
 ```
 
-The original [run instructions](docs/RUNNING.md) cover optional live execution, synthetic reference policies, recovery, and the spending guard. Only `run --execute` can send model API requests. Synthetic demonstrations are separate from the model results above.
+The [run instructions](docs/RUNNING.md) cover live execution, scripted reference
+policies, recovery, and the spending guard. Only `run --execute` sends model API
+requests; the synthetic demonstrations check the software.
