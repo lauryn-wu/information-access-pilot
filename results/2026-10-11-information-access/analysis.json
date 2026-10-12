@@ -1,0 +1,333 @@
+{
+  "mode": "live",
+  "models": {
+    "sonnet": {
+      "outcome": "no_replicated_signature",
+      "valid_cells": 64,
+      "total_cells": 64,
+      "attempt_status_counts": {
+        "valid": 64
+      },
+      "first_attempt_valid_cells": 64,
+      "control_accuracy": {
+        "correct": 40,
+        "valid": 40,
+        "total": 40,
+        "rate": 1.0
+      },
+      "accuracy_by_regime": {
+        "before": {
+          "correct": 16,
+          "valid": 16,
+          "total": 16,
+          "rate": 1.0
+        },
+        "partial": {
+          "correct": 15,
+          "valid": 16,
+          "total": 16,
+          "rate": 0.9375
+        },
+        "after": {
+          "correct": 16,
+          "valid": 16,
+          "total": 16,
+          "rate": 1.0
+        },
+        "never": {
+          "correct": 16,
+          "valid": 16,
+          "total": 16,
+          "rate": 1.0
+        }
+      },
+      "policy_agreement": {
+        "feasible": {
+          "correct": 63,
+          "valid": 64,
+          "total": 64,
+          "rate": 0.984375
+        },
+        "perfect_information": {
+          "correct": 45,
+          "valid": 64,
+          "total": 64,
+          "rate": 0.703125
+        },
+        "fixed_action": {
+          "correct": 51,
+          "valid": 64,
+          "total": 64,
+          "rate": 0.796875
+        }
+      },
+      "complete_pairs": 8,
+      "joint_signature_pairs": 0,
+      "joint_signature_by_family": {
+        "repair": 0,
+        "routing": 0
+      },
+      "pairs": [
+        {
+          "pair": "repair-01",
+          "family": "repair",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-02",
+          "family": "repair",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-03",
+          "family": "repair",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-04",
+          "family": "repair",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-01",
+          "family": "routing",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-02",
+          "family": "routing",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-03",
+          "family": "routing",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-04",
+          "family": "routing",
+          "complete": true,
+          "before_controls_correct": true,
+          "after_signature": false,
+          "never_signature": false,
+          "joint_signature": false
+        }
+      ]
+    },
+    "gemini": {
+      "outcome": "incomplete",
+      "valid_cells": 2,
+      "total_cells": 64,
+      "attempt_status_counts": {
+        "valid": 2,
+        "transport_error": 3
+      },
+      "first_attempt_valid_cells": 2,
+      "control_accuracy": {
+        "correct": 1,
+        "valid": 1,
+        "total": 40,
+        "rate": 1.0
+      },
+      "accuracy_by_regime": {
+        "before": {
+          "correct": 0,
+          "valid": 0,
+          "total": 16,
+          "rate": null
+        },
+        "partial": {
+          "correct": 0,
+          "valid": 0,
+          "total": 16,
+          "rate": null
+        },
+        "after": {
+          "correct": 2,
+          "valid": 2,
+          "total": 16,
+          "rate": 1.0
+        },
+        "never": {
+          "correct": 0,
+          "valid": 0,
+          "total": 16,
+          "rate": null
+        }
+      },
+      "policy_agreement": {
+        "feasible": {
+          "correct": 2,
+          "valid": 2,
+          "total": 64,
+          "rate": 1.0
+        },
+        "perfect_information": {
+          "correct": 1,
+          "valid": 2,
+          "total": 64,
+          "rate": 0.5
+        },
+        "fixed_action": {
+          "correct": 2,
+          "valid": 2,
+          "total": 64,
+          "rate": 1.0
+        }
+      },
+      "complete_pairs": 0,
+      "joint_signature_pairs": 0,
+      "joint_signature_by_family": {
+        "repair": 0,
+        "routing": 0
+      },
+      "pairs": [
+        {
+          "pair": "repair-01",
+          "family": "repair",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-02",
+          "family": "repair",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-03",
+          "family": "repair",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": false,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "repair-04",
+          "family": "repair",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-01",
+          "family": "routing",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-02",
+          "family": "routing",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-03",
+          "family": "routing",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        },
+        {
+          "pair": "routing-04",
+          "family": "routing",
+          "complete": false,
+          "before_controls_correct": false,
+          "after_signature": null,
+          "never_signature": null,
+          "joint_signature": false
+        }
+      ]
+    }
+  },
+  "cost": {
+    "reserved_exposure_usd": "2.961740",
+    "known_usage_cost_usd": "0.171051",
+    "unknown_cost_attempts": 3
+  },
+  "interpretation": "Exploratory screen only; signatures do not establish an internal algorithm or novelty.",
+  "format_recovery": {
+    "after_attempt_id": 4,
+    "applied_at": "2026-10-11T15:56:13.579431+00:00",
+    "backup_file": "ledger.before-format-v2-d8477b0d49ae40a794611d5ba6748f86.sqlite3",
+    "changes": [
+      {
+        "attempt_id": 1,
+        "cell": "repair-03-crossed-after",
+        "choice": "X",
+        "model": "sonnet",
+        "original_choice": null,
+        "original_status": "invalid_format",
+        "raw_sha256": "0dfe7cdf02c7fc346c2a639186d5dd000e18e46464d966a584c9eecb62a75eeb",
+        "status": "valid"
+      },
+      {
+        "attempt_id": 4,
+        "cell": "repair-03-aligned-after",
+        "choice": "X",
+        "model": "sonnet",
+        "original_choice": null,
+        "original_status": "invalid_format",
+        "raw_sha256": "2878c66e8c836b9bafe409841efbe18b65e45b2e98562af4f3e2f306a16bdb00",
+        "status": "valid"
+      }
+    ],
+    "from_code_sha256": "50458acdd3632486738401727cd4ab07fdb1c27f7eddbf1ef1a44ac8e18885fe",
+    "id": "terminal_json_recovery_v2",
+    "network_requests_made": 0,
+    "original_attempt_status_counts": {
+      "gemini": {
+        "valid": 2
+      },
+      "sonnet": {
+        "invalid_format": 2
+      }
+    },
+    "to_code_sha256": "04ef76cdf96d48dab9ed6018c8370405d08fac9b67a95c798b3800247155d533"
+  }
+}

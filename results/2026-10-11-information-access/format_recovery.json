@@ -1,0 +1,39 @@
+{
+  "after_attempt_id": 4,
+  "applied_at": "2026-10-11T15:56:13.579431+00:00",
+  "backup_file": "ledger.before-format-v2-d8477b0d49ae40a794611d5ba6748f86.sqlite3",
+  "changes": [
+    {
+      "attempt_id": 1,
+      "cell": "repair-03-crossed-after",
+      "choice": "X",
+      "model": "sonnet",
+      "original_choice": null,
+      "original_status": "invalid_format",
+      "raw_sha256": "0dfe7cdf02c7fc346c2a639186d5dd000e18e46464d966a584c9eecb62a75eeb",
+      "status": "valid"
+    },
+    {
+      "attempt_id": 4,
+      "cell": "repair-03-aligned-after",
+      "choice": "X",
+      "model": "sonnet",
+      "original_choice": null,
+      "original_status": "invalid_format",
+      "raw_sha256": "2878c66e8c836b9bafe409841efbe18b65e45b2e98562af4f3e2f306a16bdb00",
+      "status": "valid"
+    }
+  ],
+  "from_code_sha256": "50458acdd3632486738401727cd4ab07fdb1c27f7eddbf1ef1a44ac8e18885fe",
+  "id": "terminal_json_recovery_v2",
+  "network_requests_made": 0,
+  "original_attempt_status_counts": {
+    "gemini": {
+      "valid": 2
+    },
+    "sonnet": {
+      "invalid_format": 2
+    }
+  },
+  "to_code_sha256": "04ef76cdf96d48dab9ed6018c8370405d08fac9b67a95c798b3800247155d533"
+}
